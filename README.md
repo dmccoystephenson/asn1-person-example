@@ -75,7 +75,7 @@ You should see support for XML (XER) and UPER.
 
 ### Decode UPER → XML
 
-    ./converter-example -iuper -oxer person.uper > decoded.xml
+    ./converter-example -p Person -iuper -oxer person.uper > decoded.xml
 
 - `-iuper` → input is UPER.  
 - `-oxer` → output is XER (XML).
