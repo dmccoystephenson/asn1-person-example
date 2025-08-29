@@ -24,8 +24,6 @@ Save the following schema as `person.asn`:
 - **name** → UTF-8 encoded string  
 - **age** → integer limited to 0–150  
 
-> Note: The optional `isMarried` field has been removed to simplify encoding/decoding.
-
 ---
 
 ## 2. Generate Code
