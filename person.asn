@@ -1,0 +1,10 @@
+# ASN.1 Schema File: person.asn
+
+PersonModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+    Person ::= SEQUENCE {
+        name UTF8String,
+        age  INTEGER (0..150)
+    }
+
+END
