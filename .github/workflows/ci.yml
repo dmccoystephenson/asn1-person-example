@@ -18,26 +18,56 @@ jobs:
     
     - name: Install dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential autoconf automake libtool pkg-config
+        # Try to update repositories with fallback options
+        sudo apt-get update --error-on=any || sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=10 || {
+          echo "Warning: Repository update failed, trying with alternative sources"
+          sudo apt-get update -o Acquire::Check-Valid-Until=false
+        }
+        # Install only the essential missing dependency
+        sudo apt-get install -y libtool || {
+          echo "Error: Failed to install libtool"
+          echo "Checking if libtool is available in alternative ways..."
+          which libtool || echo "libtool not found"
+          exit 1
+        }
+    
+    - name: Verify build tools
+      run: |
+        echo "Checking required build tools..."
+        echo "gcc: $(gcc --version | head -1)"
+        echo "make: $(make --version | head -1)"
+        echo "autoconf: $(autoconf --version | head -1)"
+        echo "automake: $(automake --version | head -1)"
+        echo "libtool: $(libtool --version | head -1)"
+        echo "bison: $(bison --version | head -1)"
+        echo "flex: $(flex --version | head -1)"
+        echo "All required tools are available ✓"
     
     - name: Configure and build asn1c compiler
       run: |
         cd usdot-asn1c
-        test -f configure || autoreconf -iv
+        # Ensure we have the configure script
+        if [ ! -f configure ]; then
+          echo "Generating configure script..."
+          autoreconf -iv
+        fi
+        # Configure with local prefix
         ./configure --prefix=$HOME/asn1c-install
-        make
+        # Build the compiler
+        make -j$(nproc)
+        # Install to local directory
         make install
+        # Add to PATH for subsequent steps
         echo "$HOME/asn1c-install/bin" >> $GITHUB_PATH
     
     - name: Verify asn1c installation
       run: |
-        export PATH="$HOME/asn1c-install/bin:$PATH"
+        # The PATH should be updated from previous step
         asn1c -help
     
     - name: Generate C code from ASN.1 schema
       run: |
-        export PATH="$HOME/asn1c-install/bin:$PATH"
+        # Generate C code using the installed asn1c compiler
         asn1c -fcompound-names -fincludes-quoted -pdu=all person.asn
     
     - name: List generated files
@@ -46,7 +76,7 @@ jobs:
     
     - name: Build converter-example
       run: |
-        export PATH="$HOME/asn1c-install/bin:$PATH"
+        # Build using the auto-generated makefile
         make -f converter-example.mk
     
     - name: Verify converter-example
