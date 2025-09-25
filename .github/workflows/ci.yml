@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential autoconf automake libtool pkg-config
+    
+    - name: Configure and build asn1c compiler
+      run: |
+        cd usdot-asn1c
+        test -f configure || autoreconf -iv
+        ./configure --prefix=$HOME/asn1c-install
+        make
+        make install
+        echo "$HOME/asn1c-install/bin" >> $GITHUB_PATH
+    
+    - name: Verify asn1c installation
+      run: |
+        export PATH="$HOME/asn1c-install/bin:$PATH"
+        asn1c -help
+    
+    - name: Generate C code from ASN.1 schema
+      run: |
+        export PATH="$HOME/asn1c-install/bin:$PATH"
+        asn1c -fcompound-names -fincludes-quoted -pdu=all person.asn
+    
+    - name: List generated files
+      run: |
+        ls -la *.c *.h || echo "No generated files found"
+    
+    - name: Build converter-example
+      run: |
+        export PATH="$HOME/asn1c-install/bin:$PATH"
+        make -f converter-example.mk
+    
+    - name: Verify converter-example
+      run: |
+        ./converter-example -help
+    
+    - name: Test encoding XML to UPER
+      run: |
+        ./converter-example -p Person -ixer -ouper person.xml > person.uper
+        ls -la person.uper
+        xxd person.uper
+    
+    - name: Test decoding UPER to XML
+      run: |
+        ./converter-example -p Person -iuper -oxer person.uper > decoded.xml
+        cat decoded.xml
+    
+    - name: Verify round-trip conversion
+      run: |
+        # Compare original and decoded XML (ignoring whitespace differences)
+        if ! cmp -s person.xml decoded.xml; then
+          echo "Files differ, checking content..."
+          # Remove whitespace and compare
+          tr -d ' \t\n\r' < person.xml > original.compact
+          tr -d ' \t\n\r' < decoded.xml > decoded.compact
+          if cmp -s original.compact decoded.compact; then
+            echo "✓ Round-trip conversion successful (whitespace differences only)"
+          else
+            echo "✗ Round-trip conversion failed"
+            echo "Original:"
+            cat person.xml
+            echo "Decoded:"
+            cat decoded.xml
+            exit 1
+          fi
+        else
+          echo "✓ Perfect round-trip conversion"
+        fi

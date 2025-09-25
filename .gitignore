@@ -33,4 +33,4 @@ converter-example
 # Miscellaneous
 *.oer.c
 *.oer.o
-*.xml  # optional if you want XML input files tracked, otherwise remove this line
+# *.xml  # optional if you want XML input files tracked, otherwise remove this line
