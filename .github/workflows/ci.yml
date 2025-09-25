@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        # Try to update repositories with fallback options
+        sudo apt-get update --error-on=any || sudo apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=10 || {
+          echo "Warning: Repository update failed, trying with alternative sources"
+          sudo apt-get update -o Acquire::Check-Valid-Until=false
+        }
+        # Install only the essential missing dependency
+        sudo apt-get install -y libtool || {
+          echo "Error: Failed to install libtool"
+          echo "Checking if libtool is available in alternative ways..."
+          which libtool || echo "libtool not found"
+          exit 1
+        }
+    
+    - name: Verify build tools
+      run: |
+        echo "Checking required build tools..."
+        echo "gcc: $(gcc --version | head -1)"
+        echo "make: $(make --version | head -1)"
+        echo "autoconf: $(autoconf --version | head -1)"
+        echo "automake: $(automake --version | head -1)"
+        echo "libtool: $(libtool --version | head -1)"
+        echo "bison: $(bison --version | head -1)"
+        echo "flex: $(flex --version | head -1)"
+        echo "All required tools are available ✓"
+    
+    - name: Configure and build asn1c compiler
+      run: |
+        cd usdot-asn1c
+        # Ensure we have the configure script
+        if [ ! -f configure ]; then
+          echo "Generating configure script..."
+          autoreconf -iv
+        fi
+        # Configure with local prefix
+        ./configure --prefix=$HOME/asn1c-install
+        # Build the compiler
+        make -j$(nproc)
+        # Install to local directory
+        make install
+        # Add to PATH for subsequent steps
+        echo "$HOME/asn1c-install/bin" >> $GITHUB_PATH
+    
+    - name: Verify asn1c installation
+      run: |
+        # The PATH should be updated from previous step
+        asn1c -help
+    
+    - name: Generate C code from ASN.1 schema
+      run: |
+        # Generate C code using the installed asn1c compiler
+        asn1c -fcompound-names -fincludes-quoted -pdu=all person.asn
+    
+    - name: List generated files
+      run: |
+        ls -la *.c *.h || echo "No generated files found"
+    
+    - name: Build converter-example
+      run: |
+        # Build using the auto-generated makefile
+        make -f converter-example.mk
+    
+    - name: Verify converter-example
+      run: |
+        ./converter-example -help
+    
+    - name: Test encoding XML to UPER
+      run: |
+        ./converter-example -p Person -ixer -ouper person.xml > person.uper
+        ls -la person.uper
+        xxd person.uper
+    
+    - name: Test decoding UPER to XML
+      run: |
+        ./converter-example -p Person -iuper -oxer person.uper > decoded.xml
+        cat decoded.xml
+    
+    - name: Verify round-trip conversion
+      run: |
+        # Compare original and decoded XML (ignoring whitespace differences)
+        if ! cmp -s person.xml decoded.xml; then
+          echo "Files differ, checking content..."
+          # Remove whitespace and compare
+          tr -d ' \t\n\r' < person.xml > original.compact
+          tr -d ' \t\n\r' < decoded.xml > decoded.compact
+          if cmp -s original.compact decoded.compact; then
+            echo "✓ Round-trip conversion successful (whitespace differences only)"
+          else
+            echo "✗ Round-trip conversion failed"
+            echo "Original:"
+            cat person.xml
+            echo "Decoded:"
+            cat decoded.xml
+            exit 1
+          fi
+        else
+          echo "✓ Perfect round-trip conversion"
+        fi
