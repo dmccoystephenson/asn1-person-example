@@ -1,0 +1,42 @@
+# https://github.com/Dans-Plugins/dpc-conventions/blob/main/docs/RELEASE_AUTOMATION.md
+name: Release
+
+on:
+  release:
+    types: [ created ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-attach:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install asn1c
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y automake libtool autoconf
+          cd usdot-asn1c
+          test -f configure.ac && autoreconf -iv
+          ./configure
+          make
+          sudo make install
+
+      - name: Generate C sources
+        run: asn1c -fcompound-names -fincludes-quoted -pdu=all person.asn
+
+      - name: Build converter-example
+        run: make -f converter-example.mk
+
+      - name: Package artifact
+        run: tar czf asn1-person-example.tar.gz converter-example person.asn person.xml
+
+      - name: Upload artifact to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: asn1-person-example.tar.gz

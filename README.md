@@ -1,104 +1,92 @@
 # ASN.1 Person Example
 
-This repository demonstrates a **minimal ASN.1 module** compiled with `asn1c`, and how to encode/decode a `Person` object between **XML** and **Unaligned PER (UPER)** using the generated `converter-example` utility.
+## Description
 
-## Install asn1c
-Install `asn1c` from the forked repository:  
-https://github.com/Trihydro/asn1_codec/tree/develop/asn1c_combined#installing-asn1c
+ASN.1 Person Example is a minimal ASN.1 module compiled with `asn1c` that demonstrates how to encode and decode a `Person` object between XML (XER) and Unaligned PER (UPER) using the generated `converter-example` utility. It provides a foundation for experimenting with more complex ASN.1 structures.
 
----
+## Installation
 
-## 1. ASN.1 Module
+### Prerequisites
 
-Save the following schema as `person.asn`:
+- A C compiler (e.g. `gcc`)
+- `make`
+- `asn1c` – Install from the [forked repository](https://github.com/Trihydro/asn1_codec/tree/develop/asn1c_combined#installing-asn1c)
 
-    PersonModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+### Building
 
-        Person ::= SEQUENCE {
-            name UTF8String,
-            age  INTEGER (0..150)
-        }
+1. Clone the repository: `git clone --recurse-submodules https://github.com/dmccoystephenson/asn1-person-example.git`
+2. Generate C sources: `asn1c -fcompound-names -fincludes-quoted -pdu=all person.asn`
+3. Build the converter: `make -f converter-example.mk`
+4. Verify the build: `./converter-example -help`
 
-    END
+## Usage
 
-- **name** → UTF-8 encoded string  
-- **age** → integer limited to 0–150  
+### Documentation
 
----
+- [User Guide](USER_GUIDE.md) – Getting started and common scenarios
+- [Commands Reference](COMMANDS.md) – Complete list of all CLI options
+- [Configuration Guide](CONFIG.md) – ASN.1 schema options and compiler flags
+- [Changelog](CHANGELOG.md) – Release-by-release summary of changes
 
-## 2. Generate Code
+### Quick Start
 
-Run `asn1c` to compile the ASN.1 module into C sources:
-
-    asn1c -fcompound-names -fincludes-quoted -pdu=all person.asn
-
-**Flags explained:**
-- `-fcompound-names` → generate longer, less ambiguous C identifiers.  
-- `-fincludes-quoted` → use `#include "file.h"` instead of `<file.h>`.  
-- `-pdu=all` → generate encoder/decoder entry points for all top-level types.  
-
-This produces `*.c` and `*.h` files.
-
----
-
-## 3. Build Converter Example
-
-Use the provided makefile to build `converter-example`:
-
-    make -f converter-example.mk
-
-This links your generated code with the ASN.1 runtime library.  
-After building, verify with:
-
-    ./converter-example -help
-
-You should see support for XML (XER) and UPER.
-
----
-
-## 4. Test Encoding and Decoding
-
-### Input XML (`person.xml`)
-
-    <Person>
-      <name>Alice</name>
-      <age>30</age>
-    </Person>
-
-### Encode XML → UPER
+Encode XML to UPER:
 
     ./converter-example -p Person -ixer -ouper person.xml > person.uper
 
-- `-ixer` → input is XER (XML).  
-- `-ouper` → output is UPER.  
-- `-p Person` → specify the top-level ASN.1 type.
-
-### Decode UPER → XML
+Decode UPER back to XML:
 
     ./converter-example -p Person -iuper -oxer person.uper > decoded.xml
 
-- `-iuper` → input is UPER.  
-- `-oxer` → output is XER (XML).
+## Support
 
-The file `decoded.xml` should match the original input.
+### Experiencing a bug?
 
----
+Please fill out a bug report [here](https://github.com/dmccoystephenson/asn1-person-example/issues/new).
 
-## 5. Inspect Encoded Data
+- [Known Bugs](https://github.com/dmccoystephenson/asn1-person-example/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
+
+## Contributing
+
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## Testing
+
+### Encode/Decode Round-Trip
+
+Linux / macOS:
+
+    asn1c -fcompound-names -fincludes-quoted -pdu=all person.asn
+    make -f converter-example.mk
+    ./converter-example -p Person -ixer -ouper person.xml > person.uper
+    ./converter-example -p Person -iuper -oxer person.uper > decoded.xml
+
+If `decoded.xml` matches the original `person.xml`, the test has passed.
+
+## Development
+
+### Setup
+
+1. Clone the repository with submodules: `git clone --recurse-submodules https://github.com/dmccoystephenson/asn1-person-example.git`
+2. Install `asn1c` following the [installation instructions](https://github.com/Trihydro/asn1_codec/tree/develop/asn1c_combined#installing-asn1c).
+3. Generate C sources: `asn1c -fcompound-names -fincludes-quoted -pdu=all person.asn`
+4. Build: `make -f converter-example.mk`
+
+### Inspecting Encoded Data
 
 Since UPER output is binary, you can inspect it with `xxd`:
 
     xxd -b person.uper   # show bits
     xxd person.uper      # show hex
 
----
+## Authors and Acknowledgement
 
-## Summary
+### Developers
 
-You now have a minimal flow:
-1. Write ASN.1 schema (`person.asn`)  
-2. Compile with `asn1c`  
-3. Build `converter-example`  
-4. Encode/decode between XML and UPER  
+| Name | Main Contributions |
+|------|--------------------|
+| [dmccoystephenson](https://github.com/dmccoystephenson) | Initial project setup and documentation |
 
-This provides a foundation for experimenting with more complex ASN.1 structures.
+## Project Status
+
+This project is in active development.

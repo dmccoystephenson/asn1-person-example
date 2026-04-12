@@ -1,0 +1,43 @@
+# https://github.com/Dans-Plugins/dpc-conventions/blob/main/docs/TESTING_AND_CI.md
+name: Build
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install asn1c
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y automake libtool autoconf
+          cd usdot-asn1c
+          test -f configure.ac && autoreconf -iv
+          ./configure
+          make
+          sudo make install
+
+      - name: Generate C sources
+        run: asn1c -fcompound-names -fincludes-quoted -pdu=all person.asn
+
+      - name: Build converter-example
+        run: make -f converter-example.mk
+
+      - name: Test encode/decode round-trip
+        run: |
+          ./converter-example -p Person -ixer -ouper person.xml > person.uper
+          ./converter-example -p Person -iuper -oxer person.uper > decoded.xml
+          diff <(grep -o '<name>[^<]*</name>' person.xml) <(grep -o '<name>[^<]*</name>' decoded.xml)
+          diff <(grep -o '<age>[^<]*</age>' person.xml) <(grep -o '<age>[^<]*</age>' decoded.xml)
